@@ -3,18 +3,19 @@
 import { expect, it, vi } from "vitest";
 import type { AgentIdentityResult, GatewayAgentRow } from "../api/types.ts";
 import { i18n, t } from "../i18n/index.ts";
-import "./agent-select.ts";
+import { AgentSelect } from "./agent-select.ts";
 
-type AgentSelectElement = HTMLElement & {
-  agents: GatewayAgentRow[];
-  selectedId: string | null;
-  defaultId: string | null;
-  identityById: Record<string, AgentIdentityResult>;
-  authToken: string | null;
-  disabled: boolean;
-  onSelect: (agentId: string) => void;
-  updateComplete: Promise<boolean>;
-};
+const TEST_AGENT_SELECT_ELEMENT_NAME = "test-openclaw-agent-select";
+
+// The non-isolated UI runner resets modules but not customElements. Register
+// the current class graph so its i18n controller hears this file's locale changes.
+class TestAgentSelect extends AgentSelect {}
+
+if (!customElements.get(TEST_AGENT_SELECT_ELEMENT_NAME)) {
+  customElements.define(TEST_AGENT_SELECT_ELEMENT_NAME, TestAgentSelect);
+}
+
+type AgentSelectElement = AgentSelect;
 
 const agents: GatewayAgentRow[] = [
   { id: "alpha", name: "Alpha agent" },
@@ -36,7 +37,7 @@ function createIdentity(
 async function createAgentSelect(
   overrides: Partial<Omit<AgentSelectElement, keyof HTMLElement>> = {},
 ): Promise<AgentSelectElement> {
-  const element = document.createElement("openclaw-agent-select") as AgentSelectElement;
+  const element = document.createElement(TEST_AGENT_SELECT_ELEMENT_NAME) as AgentSelectElement;
   element.agents = agents;
   element.selectedId = "alpha";
   Object.assign(element, overrides);
@@ -330,14 +331,14 @@ it("refreshes translated labels when the locale changes while mounted", async ()
   const element = await createAgentSelect({ agents: [], selectedId: null });
 
   try {
-    const label = element.querySelector(".agent-select__label");
-    const englishLabel = label?.textContent?.trim();
+    const englishLabel = element.querySelector(".agent-select__label")?.textContent?.trim();
 
     await i18n.setLocale("zh-CN");
     await element.updateComplete;
 
-    expect(label?.textContent?.trim()).toBe(t("agents.noAgents"));
-    expect(label?.textContent?.trim()).not.toBe(englishLabel);
+    const translatedLabel = element.querySelector(".agent-select__label")?.textContent?.trim();
+    expect(translatedLabel).toBe(t("agents.noAgents"));
+    expect(translatedLabel).not.toBe(englishLabel);
   } finally {
     element.remove();
     await i18n.setLocale("en");

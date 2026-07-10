@@ -10,9 +10,10 @@ import {
   type ApplicationGatewaySnapshot,
 } from "../../app/context.ts";
 import { i18n, t } from "../../i18n/index.ts";
-import "./profile-page.ts";
+import { ProfilePage } from "./profile-page.ts";
 
 const PROVIDER_ELEMENT_NAME = "test-profile-page-context-provider";
+const PROFILE_PAGE_ELEMENT_NAME = "test-openclaw-profile-page";
 
 class ProfilePageContextProvider extends LitElement {
   private readonly contextProvider = new ContextProvider(this, {
@@ -28,9 +29,13 @@ if (!customElements.get(PROVIDER_ELEMENT_NAME)) {
   customElements.define(PROVIDER_ELEMENT_NAME, ProfilePageContextProvider);
 }
 
-type ProfilePageElement = HTMLElement & {
-  updateComplete: Promise<boolean>;
-};
+// Keep the mounted page and i18n manager in one module graph even when an
+// earlier non-isolated test registered the production tag before a module reset.
+class TestProfilePage extends ProfilePage {}
+
+if (!customElements.get(PROFILE_PAGE_ELEMENT_NAME)) {
+  customElements.define(PROFILE_PAGE_ELEMENT_NAME, TestProfilePage);
+}
 
 function createContext(): ApplicationContext<RouteId> {
   const snapshot: ApplicationGatewaySnapshot = {
@@ -62,18 +67,18 @@ afterEach(async () => {
 
 it("refreshes translated copy when the locale changes while mounted", async () => {
   const provider = document.createElement(PROVIDER_ELEMENT_NAME) as ProfilePageContextProvider;
-  const page = document.createElement("openclaw-profile-page") as ProfilePageElement;
+  const page = document.createElement(PROFILE_PAGE_ELEMENT_NAME) as ProfilePage;
   provider.setContext(createContext());
   provider.append(page);
   document.body.append(provider);
   await page.updateComplete;
 
-  const note = page.querySelector(".profile-note");
-  const englishNote = note?.textContent?.trim();
+  const englishNote = page.querySelector(".profile-note")?.textContent?.trim();
 
   await i18n.setLocale("de");
   await page.updateComplete;
 
-  expect(note?.textContent?.trim()).toBe(t("profilePage.offline"));
-  expect(note?.textContent?.trim()).not.toBe(englishNote);
+  const translatedNote = page.querySelector(".profile-note")?.textContent?.trim();
+  expect(translatedNote).toBe(t("profilePage.offline"));
+  expect(translatedNote).not.toBe(englishNote);
 });
